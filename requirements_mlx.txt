@@ -1,0 +1,16 @@
+mlx>=0.22.0
+numpy>=1.23.5,<2
+Pillow
+safetensors
+transformers>=4.49.0
+tqdm
+imageio
+imageio-ffmpeg
+loguru
+easydict
+librosa
+pyloudnorm
+scikit-image
+ftfy
+regex
+gradio>=5.0.0
