@@ -231,12 +231,16 @@ class MLXMultiTalkPipeline:
                 shard_weights = mx.load(sf_path)
                 all_weights.update(shard_weights)
             remapped = _remap_dit_weights(all_weights)
+            del all_weights
             self.model.load_weights(list(remapped.items()))
+            del remapped
         elif os.path.exists(dit_weights_path):
             logging.info(f"Loading DiT weights from {dit_weights_path}")
             weights = mx.load(dit_weights_path)
             remapped = _remap_dit_weights(weights)
+            del weights
             self.model.load_weights(list(remapped.items()))
+            del remapped
         else:
             logging.warning(
                 f"No safetensors weights found in {checkpoint_dir}. "
@@ -246,12 +250,21 @@ class MLXMultiTalkPipeline:
         # Re-initialize RoPE frequencies (they are not saved in weights)
         self.model.init_freqs()
 
-        # Apply quantization if requested
+        # Apply quantization if requested, block by block to avoid Metal GPU timeout / OOM
         if quantize_bits is not None:
             logging.info(f"Quantizing model to {quantize_bits} bits")
-            nn.quantize(self.model, bits=quantize_bits)
-
-        mx.eval(self.model.parameters())
+            for i, block in enumerate(self.model.blocks):
+                nn.quantize(block, bits=quantize_bits)
+                mx.eval(block.parameters())
+            # Quantize remaining top-level modules (head, embeddings, etc.)
+            class_predicate = (
+                lambda p, m: hasattr(m, "to_quantized")
+                and not isinstance(m, nn.QuantizedLinear)
+            )
+            nn.quantize(self.model, bits=quantize_bits, class_predicate=class_predicate)
+            mx.eval(self.model.parameters())
+        else:
+            mx.eval(self.model.parameters())
 
         self.sample_neg_prompt = config.sample_neg_prompt
         self.num_timesteps = num_timesteps

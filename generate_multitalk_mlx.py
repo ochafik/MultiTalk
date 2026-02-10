@@ -142,7 +142,7 @@ def _parse_args():
 def custom_init(wav2vec_dir):
     """Initialize Wav2Vec2 model and feature extractor (PyTorch, on CPU)."""
     device = torch.device('cpu')
-    audio_encoder = Wav2Vec2Model.from_pretrained(wav2vec_dir, local_files_only=True).to(device)
+    audio_encoder = Wav2Vec2Model.from_pretrained(wav2vec_dir, local_files_only=True, attn_implementation="eager").to(device)
     audio_encoder.feature_extractor._freeze_parameters()
     wav2vec_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
         wav2vec_dir, local_files_only=True
